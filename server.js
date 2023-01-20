@@ -5,6 +5,8 @@ const express = require('express');
 require('dotenv').config();
 const cors = require('cors');
 const { response } = require('express');
+import axios from "axios";
+
 //  ***** DON'T FORGET TO REQUIRE YOUR START JSON FILE ******
 let data = require('./data/weather.json');
 
@@ -21,11 +23,7 @@ app.use(cors());
 const PORT = process.env.PORT || 3002;
 
 
-// ****** ENDPOINTS ***********
-
-
-
-
+// ****** ENDPOINTS *********
 // ************* BASE ENDPOINTS ************* ----PROOF OF LIFE 
 // ** 1st arguement - endpoint in quotes
 // ** 2nd arguement - callback which will execute when someone hits that point
@@ -35,36 +33,64 @@ app.get('/', (request, response) => {
   response.status(200).send('Welcome to the server');
 });
 
-
-app.get('/weather', (request, response, next) => {
-  let lat = request.query.lat;
-  let lon = request.query.lon;
-  let searchquery  = request.query.city_name
-  let dataToGroom = data.find(city => city.city_name == searchquery);
-
+app.get('/weather', async (request, response, next) => {
   try {
+    let lat = request.query.lat;
+    let lon = request.query.lon;
+    // let { searchquery } = request.query
+    // let dataToGroom = data.find(city => city.city_name == searchquery);
+    // let weatherData = dataToGroom.data.map(day => new Forecast(day))
 
-    let weatherData = dataToGroom.data.map(day => new Forecast(day, lat, lon))
+
+    let url = `http:api.weatherbit.io/v2.0/forecast/daily?key=${process.env.WEATHER_API_KEY}&lat=${lat}&lon=${lon}&days=7&units=imperial`;
+    let weatherFromAxios = await axios.get(url);
+    let weatherData = weatherFromAxios.data.data.map(day => new Forecast(day));
 
     response.status(200).send(weatherData);
-console.log(weatherData);
+    console.log(weatherData);
 
   } catch (error) {
     next(error);
   }
 });
-// ******** CLASS TO GROOM BULKY DATA ***********
-class Forecast {
-  constructor(dayObj, lat, lon) {
-    this.date = dayObj.valid_date
-    this.description = dayObj.weather.description
-    this.lat = lat 
-    this.lon = lon 
+
+
+
+
+// ***MOVIE END POINT ***
+app.get('/movies', async (request, response, next) => {
+  try {
+    let queryFromFrontEnd = request.query.searchQuery;
+
+    let url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${queryFromFrontEnd}&language=en-US&page=1&include_adult=false`;
+    let moviesFromAxios = await axios.get(url);
+    let moviesData = moviesFromAxios.data.results.map(movie => new Movie(movie));
+    // let groomedData = photoResults.data.results.map(picObj => new Photo(picObj));
+
+    response.status(200).send(moviesData);
+  } catch (error) {
+
   }
-}
+})
+// FOR THE LAB 
+// TODO: ACCEPT THE QUERIES
+// TODO: USE THOSE QUERIES AND BUILD OUT AN URL TO HIT THE API
+// TODO:GROOM THAT DATA
+// TODO: SEND THAT DATA TO THE FRONT END
+// ******** CLASS TO GROOM BULKY DATA ***********
 
-
-
+class Forecast {
+  constructor(dayObj) {
+    this.date = dayObj.valid_date;
+    this.description = dayObj.weather.description;
+  }
+};
+class Movie {
+  constructor(movieObj) {
+    this.title = movieObj.title;
+    this.overview = movieObj.overview;
+  }
+};
 
 
 // ***** CATCH ALL ENDPOINT - NEEDS TO BE YOUR LAST DEFINED ENDPOINT ********
